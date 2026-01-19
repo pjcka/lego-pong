@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Test files
+test_*.py
+
+# macOS
+.DS_Store
+
+# Claude
+.claude/
