@@ -5,12 +5,12 @@ A classic Pong game controlled by Lego Spike Prime hub motors!
 ## Hardware Requirements
 
 - Lego Spike Prime (or Spark) Hub
-- 2 motors connected to ports A and E
+- 2 motors connected to ports A and B
 - USB connection to your Mac
 
 ## Controls
 
-- **Motors**: Turn to move paddles (Player 1 = Port A, Player 2 = Port E)
+- **Motors**: Turn to move paddles (Player 1 = Port A, Player 2 = Port B)
 - **Hub Button / Space**: Launch ball
 - **D**: Toggle debug info
 - **ESC**: Quit

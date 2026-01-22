@@ -48,11 +48,11 @@ WHITE = (255, 255, 255)
 
 # Motor positions (shared between threads)
 motor_a_position = 0
-motor_e_position = 0
+motor_b_position = 0
 motor_a_delta = 0
-motor_e_delta = 0
+motor_b_delta = 0
 last_motor_a = None
-last_motor_e = None
+last_motor_b = None
 hub_button_pressed = False
 position_lock = threading.Lock()
 hub_connected = False
@@ -69,21 +69,21 @@ def init_hub(ser):
     # Set motors to position mode (mode 2 = POS, cumulative degrees)
     ser.write(b'hub.port.A.motor.mode([(2,0)])\r\n')
     time.sleep(0.1)
-    ser.write(b'hub.port.E.motor.mode([(2,0)])\r\n')
+    ser.write(b'hub.port.B.motor.mode([(2,0)])\r\n')
     time.sleep(0.1)
     ser.reset_input_buffer()
 
 
 def read_motor_positions(ser):
     """Read motor positions and calculate deltas."""
-    global motor_a_position, motor_e_position, hub_connected
-    global motor_a_delta, motor_e_delta, last_motor_a, last_motor_e
+    global motor_a_position, motor_b_position, hub_connected
+    global motor_a_delta, motor_b_delta, last_motor_a, last_motor_b
     global hub_button_pressed
 
     try:
         # Send command to read motor positions and button state
         ser.reset_input_buffer()
-        cmd = b'print("POS:", hub.port.A.motor.get()[0], hub.port.E.motor.get()[0], hub.button.center.is_pressed())\r\n'
+        cmd = b'print("POS:", hub.port.A.motor.get()[0], hub.port.B.motor.get()[0], hub.button.center.is_pressed())\r\n'
         ser.write(cmd)
         time.sleep(0.05)
 
@@ -101,13 +101,13 @@ def read_motor_positions(ser):
                 # Calculate deltas (change since last reading)
                 if last_motor_a is not None:
                     motor_a_delta += new_a - last_motor_a
-                if last_motor_e is not None:
-                    motor_e_delta += new_e - last_motor_e
+                if last_motor_b is not None:
+                    motor_b_delta += new_e - last_motor_b
 
                 last_motor_a = new_a
-                last_motor_e = new_e
+                last_motor_b = new_e
                 motor_a_position = new_a
-                motor_e_position = new_e
+                motor_b_position = new_e
                 hub_button_pressed = button
                 hub_connected = True
             return True
@@ -294,9 +294,38 @@ def get_paddle_height(skill):
     return heights.get(skill, 100)
 
 
+def confirm_dialog(screen, clock, message):
+    """Show a Y/N confirmation dialog. Returns True if confirmed."""
+    font = pygame.font.Font(None, 74)
+    small_font = pygame.font.Font(None, 48)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_y:
+                    return True
+                elif event.key == pygame.K_n or event.key == pygame.K_ESCAPE:
+                    return False
+
+        screen.fill(BLACK)
+
+        # Message
+        text = font.render(message, True, WHITE)
+        screen.blit(text, (SCREEN_WIDTH // 2 - text.get_width() // 2, SCREEN_HEIGHT // 2 - 50))
+
+        # Prompt
+        prompt = small_font.render("Y = Yes, N = No", True, (150, 150, 150))
+        screen.blit(prompt, (SCREEN_WIDTH // 2 - prompt.get_width() // 2, SCREEN_HEIGHT // 2 + 30))
+
+        pygame.display.flip()
+        clock.tick(60)
+
+
 def skill_select_screen(screen, clock):
     """Show skill selection screen. Returns (p1_skill, p2_skill)."""
-    global motor_a_delta, motor_e_delta, hub_button_pressed
+    global motor_a_delta, motor_b_delta, hub_button_pressed
 
     font = pygame.font.Font(None, 74)
     small_font = pygame.font.Font(None, 48)
@@ -340,8 +369,8 @@ def skill_select_screen(screen, clock):
                 delta = motor_a_delta
                 motor_a_delta = 0
             else:
-                delta = motor_e_delta
-                motor_e_delta = 0
+                delta = motor_b_delta
+                motor_b_delta = 0
             button = hub_button_pressed
 
         # Accumulate motor movement
@@ -404,7 +433,7 @@ def skill_select_screen(screen, clock):
 
 
 def main():
-    global motor_a_delta, motor_e_delta
+    global motor_a_delta, motor_b_delta
 
     pygame.init()
 
@@ -448,14 +477,20 @@ def main():
     score2 = 0
 
     print(f"Starting Lego Pong! P1 skill: {p1_skill}, P2 skill: {p2_skill}")
-    print("Turn the motors on ports A and E to control the paddles.")
+    print("Turn the motors on ports A and B to control the paddles.")
     print("Press SPACE or hub button to launch the ball.")
-    print("Press D to toggle debug info.")
+    print("Press N for new game, D to toggle debug info.")
     print("Press ESC or close the window to quit.")
 
     show_debug = False
 
-    last_button_state = False
+    # Initialize button state to current state to avoid false trigger from skill selection
+    with position_lock:
+        last_button_state = hub_button_pressed
+
+    # Position ball correctly before first frame
+    ball.update(paddle1, paddle2)
+
     running = True
     while running:
         for event in pygame.event.get():
@@ -468,13 +503,29 @@ def main():
                     ball.launch()
                 elif event.key == pygame.K_d:
                     show_debug = not show_debug
+                elif event.key == pygame.K_n:
+                    if confirm_dialog(screen, clock, "Start New Game?"):
+                        # Reset everything
+                        p1_skill, p2_skill = skill_select_screen(screen, clock)
+                        p1_height = get_paddle_height(p1_skill)
+                        p2_height = get_paddle_height(p2_skill)
+                        paddle1 = Paddle(PADDLE_MARGIN, SCREEN_HEIGHT // 2 - p1_height // 2, p1_height)
+                        paddle2 = Paddle(SCREEN_WIDTH - PADDLE_MARGIN - PADDLE_WIDTH, SCREEN_HEIGHT // 2 - p2_height // 2, p2_height)
+                        ball = Ball(p1_skill, p2_skill)
+                        paddle1_y = SCREEN_HEIGHT // 2 - p1_height // 2
+                        paddle2_y = SCREEN_HEIGHT // 2 - p2_height // 2
+                        score1 = 0
+                        score2 = 0
+                        ball.update(paddle1, paddle2)
+                        with position_lock:
+                            last_button_state = hub_button_pressed
 
         # Get motor deltas and button state, then reset deltas
         with position_lock:
             delta_a = motor_a_delta
-            delta_e = motor_e_delta
+            delta_e = motor_b_delta
             motor_a_delta = 0
-            motor_e_delta = 0
+            motor_b_delta = 0
             button = hub_button_pressed
 
         # Launch ball on hub button press (edge trigger)
