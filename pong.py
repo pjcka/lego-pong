@@ -188,7 +188,7 @@ class Ball:
         self.rect = pygame.Rect(0, 0, BALL_SIZE, BALL_SIZE)
         self.p1_skill = p1_skill
         self.p2_skill = p2_skill
-        self.base_speed = 5
+        self.base_speed = 7
         self.speed = self.base_speed
         self.hit_count = 0
         self.dx = 0
@@ -244,9 +244,9 @@ class Ball:
         # Paddle collisions
         if self.rect.colliderect(paddle1.rect) and self.dx < 0:
             self.hit_count += 1
-            # Speed up every 4 hits
-            if self.hit_count % 4 == 0:
-                self.speed = min(self.speed + 1, 15)  # Cap at 15
+            # Speed up every 3 hits
+            if self.hit_count % 3 == 0:
+                self.speed = min(self.speed + 1, 20)  # Cap at 20
 
             # Ball now heading toward player 2
             skill_mult = self.get_skill_speed_multiplier(2)
@@ -258,9 +258,9 @@ class Ball:
 
         if self.rect.colliderect(paddle2.rect) and self.dx > 0:
             self.hit_count += 1
-            # Speed up every 4 hits
-            if self.hit_count % 4 == 0:
-                self.speed = min(self.speed + 1, 15)  # Cap at 15
+            # Speed up every 3 hits
+            if self.hit_count % 3 == 0:
+                self.speed = min(self.speed + 1, 20)  # Cap at 20
 
             # Ball now heading toward player 1
             skill_mult = self.get_skill_speed_multiplier(1)
